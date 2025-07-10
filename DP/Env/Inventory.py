@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 class InventoryEnv:
     """
     Entorno de control de inventario con horizonte finito
@@ -149,3 +151,56 @@ class InventoryEnv:
     # Espacio de búsqueda
     def state_space(self):
         return self._states
+
+    # ---------------------------------------------------------------------
+    # Reportar Resultados
+    def report_from_policy(self, policy):
+        """
+        Simula un episodio con la política dada y muestra:
+        - Tabla de decisiones y estados
+        - Recompensa total
+        - Gráfico con demanda, pedido, inventario y faltantes
+        """
+        # --- 1. Reiniciar entorno
+        state = self.reset()
+        t, S = state
+
+        # --- 2. Acumuladores
+        ts, demand_t, orders_t, invent_t, shortage_t = [], [], [], [], []
+
+        # --- 3. Ejecutar episodio
+        while t < self.n:
+            ts.append(t)
+            invent_t.append(S)
+            d = self.D[t]
+            demand_t.append(d)
+
+            a = policy.get((t, S), 0)
+            orders_t.append(a)
+            shortage_t.append(max(0, d - (S + a)))
+            (t, S), reward, _ = self.step(a)
+
+        total_reward = self.total_reward
+
+        # --- 4. Imprimir resumen tabular
+        print("Resumen por período:")
+        print(f"{'t':>3} {'Inv.':>6} {'Dem.':>6} {'Ord.':>6} {'Falt.':>6}")
+        for i in range(len(ts)):
+            print(f"{ts[i]:>3} {invent_t[i]:>6} {demand_t[i]:>6} {orders_t[i]:>6} {shortage_t[i]:>6}")
+
+        print(f"FO (recompensa total): {total_reward:.2f}")
+
+        # --- 5. Gráfico de la trayectoria
+        plt.figure()
+        plt.plot(ts, demand_t, marker='o', label='Demanda D[t]')
+        plt.plot(ts, orders_t, marker='s', label='Pedido óptimo aₜ')
+        plt.plot(ts, invent_t, marker='^', label='Inventario S (inicio)')
+        plt.plot(ts, shortage_t, marker='d', label='Faltante post–pedido')
+
+        plt.title("Demanda, pedido, inventario y faltante – política óptima")
+        plt.xlabel("Período t")
+        plt.ylabel("Unidades")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()

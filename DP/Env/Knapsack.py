@@ -132,3 +132,32 @@ class KnapsackEnv:
     # 2. -- Devuelve el espacio de busqueda.
     def state_space(self):
         return self._states
+    
+    # ---------------------------------------------------------------------
+    # Reportar Resultados
+    def report_from_policy(self, policy):
+
+        # --- 1. Inicializar entorno y acumuladores
+        state = self.reset()
+        objetos_tomados = []
+        peso_total = 0
+        valor_total = 0
+
+        # --- 2. Ejecutar episodio
+        while not self.is_terminal(state):
+            action = policy[state]
+            if action == "take":
+                idx = state[0]
+                objetos_tomados.append(idx)
+                peso_total += self.weights[idx]
+                valor_total += self.values[idx]
+            state, _, _ = self.step(action)
+
+        # --- 3. Imprimir resultados
+        print("Objetos seleccionados:")
+        for idx in objetos_tomados:
+            w, v = self.weights[idx], self.values[idx]
+            print(f"  • Obj {idx:>2}: peso={w}, valor={v}")
+
+        print(f"FO (valor total):    {valor_total}")
+        print(f"Presupuesto usado:   {peso_total}/{self.capacity}")
