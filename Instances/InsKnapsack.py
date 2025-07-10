@@ -1,46 +1,74 @@
+import pandas as pd
 import random
-from typing import List, Tuple
 
-def generate_knapsack_instance(
-        n: int,
-        *,
-        w_min: int = 1,
-        w_max: int = 15,
-        v_min: int = 1,
-        v_max: int = 10,
-        capacity_ratio: float = 0.3,
-        seed: int | None = None
-) -> Tuple[List[int], List[int], int]:
+# ============================================================================
+# Coordenadas geográficas aproximadas por ciudad (para simulación de ubicación)
+# ============================================================================
+ciudades = {
+    "Bogotá":       {"lat": (4.5, 4.85),     "lon": (-74.2, -74.0)},
+    "Medellín":     {"lat": (6.15, 6.4),     "lon": (-75.65, -75.5)},
+    "Cartagena":    {"lat": (10.3, 10.5),    "lon": (-75.6, -75.4)},
+    "Barranquilla": {"lat": (10.9, 11.1),    "lon": (-74.9, -74.7)},
+    "Cali":         {"lat": (3.3, 3.6),      "lon": (-76.6, -76.4)}
+}
+
+# ============================================================================
+# Generador de datos de obras públicas con atributos económicos y ubicación
+# ============================================================================
+def generar_datos(num_registros: int):
     """
-    Genera una instancia aleatoria del problema de la mochila (0-1).
+    ============================================================================
+    Generador sintético de datos de obras públicas
+    ─────────────────────────────────────────────────────────────────────────────
+    Crea una tabla de obras con los siguientes campos:
+      • Ciudad                       → ciudad donde se ubica la obra
+      • Costo de ejecución (M COP)  → inversión estimada (valor entre 1 y 10)
+      • Empleos generados (mil)     → estimación de impacto laboral (1 a 15)
+      • Latitud / Longitud          → ubicación geográfica aleatoria dentro de
+                                       los límites definidos por ciudad
 
-    Parámetros
-    ----------
-    n : int
-        Número de objetos.
-    w_min, w_max : int
-        Rango inclusivo para los pesos (w_i ∈ [w_min, w_max]).
-    v_min, v_max : int
-        Rango inclusivo para los valores (v_i ∈ [v_min, v_max]).
-    capacity_ratio : float
-        Capacidad = capacity_ratio · ∑_i w_i  (0 < ratio ≤ 1).
-        Si el ratio es bajo, la instancia será más “apretada”.
-    seed : int | None
-        Fija la semilla del generador aleatorio para reproducibilidad.
+    Entradas
+      • num_registros : int
+          Número total de obras a generar
 
-    Devuelve
-    --------
-    weights : list[int]
-    values  : list[int]
-    capacity: int
+    Salida
+      • pd.DataFrame con las columnas:
+          ['Ciudad',
+           'Costo de ejecución (en millones de pesos)',
+           '# de empleos generados (en miles)',
+           'Latitud', 'Longitud']
+    ============================================================================
     """
-    if seed is not None:
-        random.seed(seed)
 
-    weights = [random.randint(w_min, w_max) for _ in range(n)]
-    values  = [random.randint(v_min, v_max) for _ in range(n)]
+    datos = []
 
-    total_w = sum(weights)
-    capacity = max(1, int(round(capacity_ratio * total_w)))
+    # -------------------------------------------------------------------------
+    # 1. Generar una obra aleatoria por cada iteración
+    # -------------------------------------------------------------------------
+    for _ in range(num_registros):
+        ciudad = random.choice(list(ciudades.keys()))              # Seleccionar ciudad aleatoriamente
+        lat_range = ciudades[ciudad]["lat"]
+        lon_range = ciudades[ciudad]["lon"]
 
-    return weights, values, capacity
+        # -- Generar valores económicos
+        costo = round(random.uniform(1, 10), 0)                    # Costo en millones (redondeado)
+        empleo = round(random.uniform(1, 15), 0)                   # Empleos en miles (redondeado)
+
+        # -- Generar ubicación geográfica dentro de los rangos definidos
+        lat = round(random.uniform(*lat_range), 6)
+        lon = round(random.uniform(*lon_range), 6)
+
+        # -- Armar el registro
+        datos.append({
+            "Ciudad": ciudad,
+            "Costo de ejecución (en millones de pesos)": costo,
+            "# de empleos generados (en miles)": empleo,
+            "Latitud": lat,
+            "Longitud": lon
+        })
+
+    # -------------------------------------------------------------------------
+    # 2. Convertir la lista de dicts en DataFrame
+    # -------------------------------------------------------------------------
+    df = pd.DataFrame(datos)
+    return df

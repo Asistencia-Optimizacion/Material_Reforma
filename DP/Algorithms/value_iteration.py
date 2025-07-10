@@ -1,81 +1,87 @@
 def value_iteration(env, gamma=1.0, theta=1e-8):
     """
-    Iteración de valores para control óptimo (algoritmo de la figura “Value Iteration”).
-    
-    1. **Inicializar** V(s) arbitrariamente (aquí 0) para todos los estados.  
-    2. **Repetir**  
-         Δ ← 0  
-         Para cada s ∈ S:  
-             v ← V(s)  
-             V(s) ← max_a Σ_{s′,r} p(s′,r | s,a) [ r + γ V(s′) ]  
-             Δ ← max(Δ, |v − V(s)|)  
-       **Hasta que** Δ < θ.  
-    3. **Derivar** la política determinista óptima  
-         π(s) ← arg max_a Σ_{s′,r} p(s′,r | s,a) [ r + γ V(s′) ]  
-    4. **Devolver** (π*, V).
-    
-    Parámetros
-    ----------
-    env : objeto del entorno
-        Implementa `state_space()`, `actions(s)`, `sim_step(s, a)` e `is_terminal(s)`.
-    gamma : float
-        Factor de descuento γ ∈ [0,1].
-    theta : float
-        Umbral de convergencia θ (termina cuando el mayor cambio en V es < θ).
-    
-    Retorna
-    -------
-    policy : dict {estado: acción}
-        Política determinista óptima π*.
-    V : dict {estado: valor}
-        Valor óptimo v*(s) para cada estado.
+    ============================================================================
+    Algoritmo : Iteración de Valores (control óptimo, versión determinista)
+    ─────────────────────────────────────────────────────────────────────────────
+    Entradas
+      • env    : entorno que implementa
+                   ▸ state_space()         → Iterable[State]
+                   ▸ is_terminal(s)        → bool
+                   ▸ sim_step(s, a)        → (s', r)
+                   ▸ actions(s)            → Iterable[Action]
+      • gamma  : factor de descuento γ ∈ [0,1]
+      • theta  : umbral de convergencia θ > 0
+
+    Salida
+      • policy : política óptima π*
+      • V      : valores óptimos v* asociados a π*
+    ============================================================================
+
+    Descripción resumida
+    ---------------------------------------------------------------------------
+      1.  Inicializa V(s) ← 0 para todo s ∈ 𝒮
+      2.  Repite hasta convergencia:
+            ▸ V(s) ← max_a [ r + γ·V(s′) ]
+            ▸ Δ ← max_s |v_antiguo - V(s)|
+      3.  Deriva π*(s) ← argmax_a [ r + γ·V(s′) ]
+      4.  Devuelve (π*, V)
     """
 
-    # --- 1. Inicialización: V(s) = 0 para todos los estados -----------------
+    # -------------------------------------------------------------------------
+    # 1. INICIALIZACIÓN: V(s) ← 0 para todos los estados
+    # -------------------------------------------------------------------------
     V = {s: 0.0 for s in env.state_space()}
 
-    # --- 2. Bucle principal de iteración de valores -------------------------
+    # -------------------------------------------------------------------------
+    # 2. ITERACIÓN DE VALORES: actualizar V hasta convergencia (Δ < θ)
+    # -------------------------------------------------------------------------
     while True:
-        delta = 0.0           # Δ ← 0  (máximo cambio observado esta pasada)
+        delta = 0.0  # Δ ← 0 (máximo cambio en esta iteración)
 
-        # Para cada s ∈ S
         for s in env.state_space():
-            if env.is_terminal(s):
-                continue      # los estados terminales ya tienen V(s) fijo
+            if env.is_terminal(s):         # omitimos terminales
+                continue
 
-            # --- v ← V(s) (almacenar valor anterior) ------------------------
-            # max_a [ r + γ V(s′) ]  ←  Q óptimo de (s,a) en un paso
+            # ── 2.a Almacenar valor previo
+            v = V[s]
+
+            # ── 2.b Calcular el mejor retorno esperado
             best_q = max(
-                (env.sim_step(s, a)[1] + gamma * V[env.sim_step(s, a)[0]]
-                 for a in env.actions(s))
+                (env.sim_step(s, a)[1] + gamma * V[env.sim_step(s, a)[0]])
+                for a in env.actions(s)
             )
 
-            # Actualizar Δ ← max(Δ, |v − V(s)|)
-            delta = max(delta, abs(best_q - V[s]))
-
-            # V(s) ← best_q  (mejor retorno esperado al actuar óptimamente)
+            # ── 2.c Actualizar V(s) ← best_q
             V[s] = best_q
 
-        # Condición de parada: Δ < θ  → convergió
+            # ── 2.d Actualizar el máximo cambio observado Δ
+            delta = max(delta, abs(v - best_q))
+
+        # ── 2.e Criterio de parada
         if delta < theta:
             break
 
-    # --- 3. Derivar una política determinista óptima π* ---------------------
+    # -------------------------------------------------------------------------
+    # 3. DERIVAR POLÍTICA ÓPTIMA π*(s) ← argmax_a Q(s,a)
+    # -------------------------------------------------------------------------
     policy = {}
+
     for s in env.state_space():
         if env.is_terminal(s):
             continue
 
         best_a, best_q = None, -float('inf')
 
-        # π(s) ← argmax_a Q(s,a) donde Q(s,a) = r + γ V(s′)
         for a in env.actions(s):
             next_s, r = env.sim_step(s, a)
             q_sa = r + gamma * V[next_s]
+
             if q_sa > best_q:
                 best_q, best_a = q_sa, a
 
         policy[s] = best_a
 
-    # --- 4. Salida: política y función de valores óptimas -------------------
+    # -------------------------------------------------------------------------
+    # 4. SALIDA: política y función de valor óptimas
+    # -------------------------------------------------------------------------
     return policy, V

@@ -1,141 +1,238 @@
 class KnapsackEnv:
-
     """
-    Entorno del problema de la mochila 0-1.
+    ============================================================================
+    Entorno del Problema de la Mochila 0-1 (Knapsack)
+    ─────────────────────────────────────────────────────────────────────────────
+    Simula un entorno tipo MDP donde se toman decisiones secuenciales sobre 
+    incluir o no objetos en una mochila de capacidad limitada.
 
-    Estado  : tupla (i, c)
-              i - índice del siguiente objeto a considerar   (0 … n).
-              c - capacidad restante                         (0 … W).
+    • Estado     : tupla (i, c)
+                   ▸ i → índice del objeto actual (0 … n)
+                   ▸ c → capacidad restante (0 … W)
 
-    Acciones: "tomar", "omitir"
-              "tomar" es legal solo si pesos[i] <= c.
+    • Acciones   : "take", "skip"
+                   ▸ "take" solo es legal si el objeto cabe (peso[i] ≤ c)
 
-    Recompensa: valor del objeto cuando se toma, 0 en caso contrario.
+    • Recompensa : valor del objeto si se toma, 0 si se omite
 
-    Episodio: exactamente n decisiones → termina cuando i == n.
+    • Transición : determinista — avanza al siguiente objeto siempre (i ← i+1)
+
+    • Episodio   : duración fija de n pasos (uno por cada objeto)
+
+    Uso:
+      - Compatible con programación dinámica (VI, PI)
+      - Permite análisis y visualización de políticas
+    ============================================================================
     """
 
-
-    # ---------------------------------------------------------------------
-    # Inicializar.
+    # =========================================================================
+    # 1. INICIALIZACIÓN DEL ENTORNO
+    # =========================================================================
     def __init__(self, weights, values, capacity):
+        """
+        Constructor del entorno.
         
+        Parámetros:
+        -----------
+        weights  : lista de pesos de cada objeto
+        values   : lista de valores (empleos) de cada objeto
+        capacity : capacidad total de la mochila
+        """
         assert len(weights) == len(values), "Todo objeto debe tener peso y valor."
 
-        # 1. --- Información del problema:
-        self.weights  = list(weights)           # Pesos del los objetos
-        self.values   = list(values)            # Valores de los objetos
-        self.capacity = int(capacity)           # Capacidad de la mochila
-        self.n        = len(self.weights)       # Número de objetos que hay.
-        
-        # 2. --- Estado actual del problema:
-        self.i = None               # Indice del elemento a evaluar
-        self.c = None               # Capacidad disponible
-        self.total_reward = None    # Retorno total
-        
-        # 3. --- Todos los posibles estados. 
-        self._states = [(i, c) for i in range(self.n + 1) for c in range(self.capacity + 1)]
+        # --- 1.1 Parámetros del problema
+        self.weights  = list(weights)             # Pesos de los objetos
+        self.values   = list(values)              # Valores o beneficios (empleos generados)
+        self.capacity = int(capacity)             # Capacidad máxima disponible
+        self.n        = len(weights)              # Número total de objetos
 
-    # 4. --- El estado se define siempre como pareja: elemento y capacidad restante
+        # --- 1.2 Estado actual (se actualiza con reset() o step())
+        self.i = None                             # Índice del objeto actual (0 … n)
+        self.c = None                             # Capacidad restante
+        self.total_reward = None                  # Suma de recompensas acumuladas
+
+        # --- 1.3 Espacio de estados (pares válidos (i, c))
+        self._states = [(i, c) for i in range(self.n + 1)
+                             for c in range(self.capacity + 1)]
+
     @property
     def state(self):
+        """
+        Estado actual del entorno, expresado como tupla (i, c)
+        """
         return (self.i, self.c)
 
-    
-    # ---------------------------------------------------------------------
-    # Imprimir.
     def __repr__(self):
-        return (f"KnapsackEnv(#_Objetos = {self.n}, Capacidad = {self.capacity}, "f"#_Estados = {len(self._states)})")
+        """
+        Representación legible del entorno
+        """
+        return (f"KnapsackEnv(#_Objetos = {self.n}, "
+                f"Capacidad = {self.capacity}, "
+                f"#_Estados = {len(self._states)})")
 
+    # =========================================================================
+    # 2. MODELO DEL ENTORNO: ACCIONES Y TRANSICIONES
+    # =========================================================================
 
-    # ---------------------------------------------------------------------
-    # Acciones sobre el ambiente. 
-
-    # 1. --- Dado un estado, que acciones puedo hcaer (legales).
     def actions(self, state=None):
+        """
+        Devuelve las acciones válidas en un estado dado.
 
-        if state is None: state = self.state            # Si no me pasaron un estado, tomo el del ambiente por defecto.
-        i, c = state                                    # Sino, toma el objeto:capacidad_restante del estado.
+        Parámetros:
+        -----------
+        state : tupla (i, c)
+            Estado del entorno. Si es None, usa el estado actual.
 
-        if i >= self.n: return []                       # Si ya acabe de revisar todos los objetos, no hay acciones.
-        
-        acts = ["skip"]                                 # Si quedan acciones por revisar, siempre lo puedo saltar.
-        if self.weights[i] <= c: acts.append("take")    # Si cabe el la maleta (peso menor a la capacidad restante) añado la acción tomar.
+        Retorna:
+        --------
+        List[str] con acciones legales ("skip", "take")
+        """
+        if state is None:
+            state = self.state
+
+        i, c = state
+
+        # --- Si ya no hay objetos por considerar, no hay acciones posibles
+        if i >= self.n:
+            return []
+
+        # Siempre se puede omitir el objeto
+        acts = ["skip"]
+
+        # Solo se puede tomar si cabe dentro del presupuesto
+        if self.weights[i] <= c:
+            acts.append("take")
+
         return acts
-    
-    # 2. --- Aplicar una acción sobre el estado actual (Función de transisición).
-    def step(self, action):
 
-        # Revisamos que no haya trampa con la acción a hacer. (Esto es factibilidad del problema).
+    def step(self, action):
+        """
+        Ejecuta una acción sobre el estado actual del entorno.
+
+        Parámetro:
+        ----------
+        action : str
+            Acción a ejecutar: "take" o "skip"
+
+        Retorna:
+        --------
+        state_next : tupla
+            Nuevo estado tras la acción
+        reward : float
+            Recompensa recibida
+        done : bool
+            True si el episodio ha terminado (i == n)
+        """
+        # Validar que la acción sea legal
         if action not in self.actions():
-            raise ValueError(f"Illegal action {action!r} in state {self.state}")
-        
-        i, c = self.i, self.c               # Si la acción es legal, recuperamos la información del problema.
-        
-        # Si la acción es tomar: I. La recompensa es su valor, y II. se debe descontar el peso.
+            raise ValueError(f"Acción ilegal {action!r} en el estado {self.state}")
+
+        i, c = self.i, self.c
+
+        # Aplicar efecto de la acción
         if action == "take":
             reward = self.values[i]
             c -= self.weights[i]
-        
-        # Si la acción es omitir: I. No hay recompensa y II. no pasa nada con la capacidad.
         else:
             reward = 0
-        
-        # Siempre avanzo al siguiente objeto, con la capacidad del morral actualizada (capacidad restante).
+
+        # Avanzar al siguiente objeto
         i += 1
         self.i, self.c = i, c
-        
-        # Calculo la utilidad total y reviso si ya acabe.
+
+        # Acumular recompensa y chequear finalización
         self.total_reward += reward
         done = (i == self.n)
 
         return self.state, reward, done
-    
-    # 3. --- Simular una acción sobre el un estado dado (Función de transisición).
-    def sim_step(self, state, action):
 
-        # Recuperamos la información del problema.
+    def sim_step(self, state, action):
+        """
+        Simula una acción en un estado dado (sin afectar el entorno actual).
+
+        Parámetros:
+        -----------
+        state : tupla (i, c)
+            Estado desde el cual simular
+
+        action : str
+            Acción a simular ("take" o "skip")
+
+        Retorna:
+        --------
+        next_state : tupla (i+1, c’)
+        reward : float
+        """
         i, c = state
 
-        # Si la acción es tomar: I. La recompensa es su valor, y II. se debe descontar el peso.
         if action == "take":
             reward = self.values[i]
             c -= self.weights[i]
-
-        # Si la acción es omitir: I. No hay recompensa y II. no pasa nada con la capacidad.
         else:
             reward = 0
-        
-        # Siempre avanzo al siguiente objeto, con la capacidad del morral actualizada (capacidad restante).
+
         return (i + 1, c), reward
 
+    # =========================================================================
+    # 3. FUNCIONES AUXILIARES
+    # =========================================================================
 
-    # ---------------------------------------------------------------------
-    # Reiniciar
     def reset(self):
+        """
+        Reinicia el entorno al estado inicial.
 
-        self.i = 0                  # Empezamos en el objeto 0
-        self.c = self.capacity      # Reiniciamos la capacidad al máximo.
-        self.total_reward = 0       # Y el total de la recompensa es 0.
-        
+        Retorna:
+        --------
+        state : tupla (0, capacidad)
+        """
+        self.i = 0
+        self.c = self.capacity
+        self.total_reward = 0
         return self.state
 
-    
-    # ---------------------------------------------------------------------
-    # Información
-
-    # 1. -- Si estamos en un estado terminal / final.
     def is_terminal(self, state=None):
-        if state is None: state = self.state
+        """
+        Determina si un estado es terminal (i == n).
+
+        Parámetro:
+        ----------
+        state : tupla, opcional
+            Si es None, usa el estado actual.
+
+        Retorna:
+        --------
+        bool
+        """
+        if state is None:
+            state = self.state
         return state[0] >= self.n
-    
-    # 2. -- Devuelve el espacio de busqueda.
+
     def state_space(self):
+        """
+        Devuelve todos los estados posibles (i, c) del entorno.
+
+        Retorna:
+        --------
+        List[tuple]
+        """
         return self._states
-    
-    # ---------------------------------------------------------------------
-    # Reportar Resultados
+
     def report_from_policy(self, policy):
+        """
+        Ejecuta un episodio completo usando una política dada
+        y reporta el desempeño (valor, objetos tomados, uso del presupuesto).
+
+        Parámetros:
+        -----------
+        policy : dict[state → action]
+            Política determinista aplicada
+
+        Retorna:
+        --------
+        valor_total      : suma de valores recolectados
+        objetos_tomados  : lista de índices tomados
+        peso_total       : presupuesto efectivamente utilizado
+        """
 
         # --- 1. Inicializar entorno y acumuladores
         state = self.reset()
@@ -143,7 +240,7 @@ class KnapsackEnv:
         peso_total = 0
         valor_total = 0
 
-        # --- 2. Ejecutar episodio
+        # --- 2. Ejecutar episodio según la política
         while not self.is_terminal(state):
             action = policy[state]
             if action == "take":
@@ -153,7 +250,7 @@ class KnapsackEnv:
                 valor_total += self.values[idx]
             state, _, _ = self.step(action)
 
-        # --- 3. Imprimir resultados
+        # --- 3. Imprimir resultados (útil para depuración o validación)
         print("Objetos seleccionados:")
         for idx in objetos_tomados:
             w, v = self.weights[idx], self.values[idx]
@@ -161,3 +258,5 @@ class KnapsackEnv:
 
         print(f"FO (valor total):    {valor_total}")
         print(f"Presupuesto usado:   {peso_total}/{self.capacity}")
+
+        return valor_total, objetos_tomados, peso_total

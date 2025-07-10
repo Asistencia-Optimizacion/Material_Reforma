@@ -30,42 +30,41 @@ def policy_iteration(env, policy, gamma: float = 1.0, theta: float = 1e-8, repor
     """
 
     # -------------------------------------------------------------------------
-    #  Bucle principal: repetir hasta que la política se vuelva estable
+    # 1. BUCLE PRINCIPAL: iterar hasta estabilizar la política
     # -------------------------------------------------------------------------
     while True:
 
-        # 1. EVALUACIÓN DE LA POLÍTICA  (paso de predicción)
-        #    Calcula V ← v_π hasta |Δ|<θ
+        # ── 1.a Evaluación de la política actual: V ← v_π
         V = policy_evaluation(env, policy, gamma, theta, report)
 
-        # 2. MEJORA DE LA POLÍTICA  (paso de control)
-        policy_stable = True
+        # ── 1.b Mejora de la política: π ← greedy(V)
+        policy_stable = True  # bandera para verificar cambios en π
 
         for s in env.state_space():
 
-            if env.is_terminal(s):          # omitimos estados terminales
+            if env.is_terminal(s):  # omitimos terminales
                 continue
 
-            old_a = policy[s]               # acción previa de la política
+            old_a = policy[s]       # acción actual según la política
 
-            # ── 2.a Buscar la acción greedy respecto a V(s)
+            # ── Buscar la mejor acción (greedy respecto a V)
             best_q = -float('inf')
             best_a = None
 
             for a in env.actions(s):
-                next_s, r = env.sim_step(s, a)          # transición determinista
-                q_sa = r + gamma * V[next_s]            # Qπ(s,a) = r + γ V(s')
+                next_s, r = env.sim_step(s, a)     # transición determinista s ─a→ s'
+                q_sa = r + gamma * V[next_s]       # Qπ(s,a) = r + γ·V(s')
 
-                if q_sa > best_q:                       # maximizar Qπ(s,a)
+                if q_sa > best_q:                  # maximizar Qπ(s,a)
                     best_q, best_a = q_sa, a
 
-            # ── 2.b Actualizar π(s) ← argmax_a Qπ(s,a)
+            # ── Actualizar π(s) ← argmax_a Qπ(s,a)
             policy[s] = best_a
 
-            # ── 2.c Comprobar si cambió la acción
+            # ── Si la acción cambió, marcar política como inestable
             if best_a != old_a:
                 policy_stable = False
 
-        # 3. CRITERIO DE PARADA: π no cambió en ningún estado
+        # ── 1.c Verificar convergencia: si π no cambió en ningún estado
         if policy_stable:
             return policy, V
