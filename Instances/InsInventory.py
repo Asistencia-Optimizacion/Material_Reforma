@@ -230,3 +230,48 @@ def generar_datos(num_periodos: int = 12,
     df.set_index(df['t'], inplace=True)
 
     return df
+
+
+import matplotlib.pyplot as plt
+
+def plot_plan_produccion(M, d, produccion, inventario_ini, titulo='Plan de producción [Ton]', show=True):
+    """
+    Grafica demanda, inventario inicial y producción por período.
+    Params:
+      M              : lista ordenada de períodos (ints o labels numéricos).
+      d              : dict[t] -> demanda.
+      produccion     : dict[t] -> producción en t.
+      inventario_ini : dict[t] -> inventario inicial en t (antes de producir).
+      titulo         : título del gráfico.
+      show           : si True, muestra la figura (plt.show()).
+    Return:
+      fig, ax
+    """
+
+    # Etiquetas (meses abreviados si <=12 períodos, si no M#)
+    if len(M) <= 12:
+        meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][:len(M)]
+    else:
+        meses = [f"M{i}" for i in M]
+
+    # Listas ordenadas
+    demanda_list    = [d[t] for t in M]
+    produccion_list = [produccion[t] for t in M]
+    inventario_list = [inventario_ini[t] for t in M]
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(16, 10))
+    ax.fill_between(meses, demanda_list, color='lightgray', label='Demanda [Ton]', alpha=0.6)
+    ax.bar(meses, inventario_list, label='Inventario inicial [Ton]', color='darkorange', alpha=0.8)
+    ax.bar(meses, produccion_list, bottom=inventario_list, label='Producción [Ton]', color='royalblue', alpha=0.8)
+
+    ax.set_title(titulo)
+    ax.set_ylabel('Toneladas')
+    ax.legend()
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    fig.tight_layout()
+
+    if show:
+        plt.show()
+
+    return fig, ax

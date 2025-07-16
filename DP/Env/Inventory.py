@@ -368,8 +368,8 @@ class InventoryEnv:
         plt.fill_between(x_pos, demanda_list, color='lightgray', label='Demanda [Ton]', alpha=0.6)
 
         # Barras apiladas: inventario inicial como base, producción encima
-        plt.bar(x_pos, inventario_list, label='Inventario inicial [Ton]', color='darkorange', alpha=0.9)
-        plt.bar(x_pos, produccion_list, bottom=inventario_list, label='Producción [Ton]', color='royalblue')
+        plt.bar(x_pos, inventario_list, label='Inventario inicial [Ton]', color='darkorange', alpha=0.8)
+        plt.bar(x_pos, produccion_list, bottom=inventario_list, label='Producción [Ton]', color='royalblue', alpha=0.8)
 
         plt.title('Plan de producción [Ton]')
         plt.ylabel('Toneladas')
