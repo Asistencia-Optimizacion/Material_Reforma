@@ -1,3 +1,30 @@
+"""
+# Aproxima V* directamente y luego deriva π*
+# Entradas:
+#   S, A(s), p(s',r|s,a), γ, θ
+# Salidas:
+#   π* : política óptima
+#   V* : función de valor óptima
+# -------------------------------------------
+
+# Fase 1: aproximar V*
+V(s) ← 0  para todo s ∈ S
+
+repetir
+    Δ ← 0
+    para cada s ∈ S:
+        v ← V(s)
+        V(s) ← max_a Σ_{s',r} p(s',r | s,a) · [ r + γ · V(s') ]
+        Δ ← max(Δ, |v − V(s)|)
+hasta que Δ < θ
+
+# Fase 2: derivar π* usando V*
+para cada s ∈ S:
+    π*(s) ← argmax_a Σ_{s',r} p(s',r | s,a) · [ r + γ · V(s') ]
+
+return π*, V
+"""
+
 def value_iteration(env, gamma=1.0, theta=1e-8):
     """
     ============================================================================

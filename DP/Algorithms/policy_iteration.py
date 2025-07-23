@@ -1,5 +1,44 @@
 from policy_evaluation import policy_evaluation
 
+"""
+# Alterna evaluación y mejora hasta que la política se estabiliza
+# Entradas:
+#   S, A(s), p(s',r|s,a), γ, θ
+# Salidas:
+#   π*  : política óptima
+#   V*  : función de valor óptima
+# -------------------------------------------
+
+# 1. Inicialización
+π(s) ← acción cualquiera  para todo s ∈ S
+V(s) ← 0
+
+bucle:
+    # 2. Evaluar la política actual π  (igual que el bloque anterior)
+    repetir
+        Δ ← 0
+        para cada s ∈ S:
+            v ← V(s)
+            a ← π(s)
+            V(s) ← Σ_{s',r} p(s',r | s,a) · [ r + γ · V(s') ]
+            Δ ← max(Δ, |v − V(s)|)
+    hasta que Δ < θ
+
+    # 3. Mejorar la política
+    policy_stable ← true
+    para cada s ∈ S:
+        old ← π(s)
+        π(s) ← argmax_a Σ_{s',r} p(s',r | s,a) · [ r + γ · V(s') ]
+        si old ≠ π(s):
+            policy_stable ← false
+
+    si policy_stable:
+        break
+
+return π, V
+"""
+
+
 def policy_iteration(env, policy, gamma: float = 1.0, theta: float = 1e-8, report: bool = False):
     """
     ============================================================================

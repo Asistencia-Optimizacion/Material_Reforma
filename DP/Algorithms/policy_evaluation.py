@@ -1,3 +1,32 @@
+"""
+# Calcula Vπ para una política fija π
+# Entradas:
+#   S          : conjunto de estados
+#   π(s)       : política dada (acción para cada s)
+#   p(s',r|s,a): modelo de transición y recompensa
+#   γ          : factor de descuento (0 ≤ γ ≤ 1)
+#   θ          : umbral de convergencia
+# Salida:
+#   Vπ(s)      : valor esperado para cada estado bajo π
+# -----------------------------------------------------
+
+# Inicialización
+V(s) ← 0  para todo s ∈ S
+
+# Evaluación iterativa
+repetir
+    Δ ← 0
+    para cada estado s ∈ S:
+        v ← V(s)                                    # valor anterior
+        a ← π(s)                                    # acción dictada por la política
+        V(s) ← Σ_{s',r} p(s',r | s,a) · [ r + γ · V(s') ]
+        Δ ← max(Δ, |v − V(s)|)
+hasta que Δ < θ
+
+return V
+"""
+
+
 def policy_evaluation(env, policy, gamma: float = 1.0, theta: float = 1e-6, report: bool = False):
     """
     ============================================================================
