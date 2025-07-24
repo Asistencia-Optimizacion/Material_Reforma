@@ -3,7 +3,6 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange.svg)](https://jupyter.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.XXXXXXX-blue)](https://doi.org/10.5281/zenodo.XXXXXXX)
 
 ## Resumen
 
@@ -29,7 +28,9 @@ La metodología pedagógica integra fundamentos teóricos con implementaciones c
 - Algoritmos de Programación Dinámica
 - Heurísticas constructivas tipo Greedy
 
-### Caso 3: OptiCoffee - Planificación Estratégica de Producción e Inventarios
+> Además de un Notebook teórico con explicaciones detallas a fondo de todos los algoritmos de Programación Dinámica.
+
+### Caso 2: OptiCoffee - Planificación Estratégica de Producción e Inventarios
 
 **Problema**: Minimización de costos totales de producción y almacenamiento a lo largo de un horizonte de planificación multiperiodo.
 
@@ -251,10 +252,12 @@ Para la especificación completa de versiones, consulte el archivo `requirements
 - Algoritmo del Vecino Más Cercano para TSP (complejidad O(n²))
 - Heurística de Inserción de Menor Costo (complejidad O(n²))
 - Algoritmo Greedy para problema de mochila
+- Entre otros...
 
 **Heurísticas de Mejora**
 - Algoritmo 2-OPT para TSP (complejidad O(n²) por iteración)
 - Procedimientos de búsqueda local con criterios de parada
+- Entre otros...
 
 #### Capacidades de Visualización
 
@@ -279,7 +282,3 @@ Para la especificación completa de versiones, consulte el archivo `requirements
 - Distribuciones probabilísticas paramétricas para costos y demandas
 - Generación de coordenadas geográficas realistas dentro de Colombia
 - Control de semillas aleatorias para reproducibilidad de experimentos
-
-## Licencia y Derechos de Autor
-
-Este proyecto se distribuye bajo la Licencia MIT. Consulte el archivo [LICENSE](LICENSE) para obtener información detallada sobre los términos de uso y distribución.
