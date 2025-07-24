@@ -231,47 +231,165 @@ def generar_datos(num_periodos: int = 12,
 
     return df
 
+# ============================================================================
+# Gráficar Resultados
+# ============================================================================
 
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-def plot_plan_produccion(M, d, produccion, inventario_ini, titulo='Plan de producción [Ton]', show=True):
+def plot_plan_produccion(M, d, produccion, inventario_ini,
+                         cost_produccion, cost_inventario, obj_lp):
     """
-    Grafica demanda, inventario inicial y producción por período.
-    Params:
-      M              : lista ordenada de períodos (ints o labels numéricos).
-      d              : dict[t] -> demanda.
-      produccion     : dict[t] -> producción en t.
-      inventario_ini : dict[t] -> inventario inicial en t (antes de producir).
-      titulo         : título del gráfico.
-      show           : si True, muestra la figura (plt.show()).
-    Return:
-      fig, ax
+    Gráfico interactivo:
+      - Área gris = demanda
+      - Barras apiladas = inventario inicial + producción
+      - Etiquetas sobre barras (sin texto cuando el valor es 0)
+      - Donut con composición del FO
+      - Total centrado en el donut
+      - Leyenda arriba
     """
 
-    # Etiquetas (meses abreviados si <=12 períodos, si no M#)
+    # Etiquetas de períodos
     if len(M) <= 12:
         meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][:len(M)]
     else:
         meses = [f"M{i}" for i in M]
 
-    # Listas ordenadas
+    # Datos
     demanda_list    = [d[t] for t in M]
     produccion_list = [produccion[t] for t in M]
     inventario_list = [inventario_ini[t] for t in M]
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(16, 10))
-    ax.fill_between(meses, demanda_list, color='lightgray', label='Demanda [Ton]', alpha=0.6)
-    ax.bar(meses, inventario_list, label='Inventario inicial [Ton]', color='darkorange', alpha=0.8)
-    ax.bar(meses, produccion_list, bottom=inventario_list, label='Producción [Ton]', color='royalblue', alpha=0.8)
+    # Etiquetas: solo valores > 0
+    text_inventario = [str(v) if v != 0 else "" for v in inventario_list]
+    text_produccion = [str(v) if v != 0 else "" for v in produccion_list]
 
-    ax.set_title(titulo)
-    ax.set_ylabel('Toneladas')
-    ax.legend()
-    ax.grid(axis='y', linestyle='--', alpha=0.7)
-    fig.tight_layout()
+    # Subplots: 1 fila, 2 columnas
+    fig = make_subplots(
+        rows=1, cols=2,
+        column_widths=[0.8, 0.2],
+        specs=[[{"type": "xy"}, {"type": "domain"}]],
+    )
 
-    if show:
-        plt.show()
+    # Área gris demanda
+    fig.add_trace(go.Scatter(
+        x=meses,
+        y=demanda_list,
+        fill='tozeroy',
+        fillcolor='rgba(128,128,128,0.3)',
+        line=dict(color='rgba(128,128,128,0.5)'),
+        name='Demanda [Ton]'
+    ), row=1, col=1)
 
-    return fig, ax
+    # Barras inventario
+    fig.add_trace(go.Bar(
+        x=meses,
+        y=inventario_list,
+        name='Inventario inicial [Ton]',
+        marker_color='darkorange',
+        text=text_inventario,
+        textposition='outside'
+    ), row=1, col=1)
+
+    # Barras producción
+    fig.add_trace(go.Bar(
+        x=meses,
+        y=produccion_list,
+        name='Producción [Ton]',
+        marker_color='royalblue',
+        text=text_produccion,
+        textposition='outside'
+    ), row=1, col=1)
+
+    # Donut (texto estándar fuera del gráfico)
+    fig.add_trace(go.Pie(
+        labels=['Producción', 'Inventario'],
+        values=[cost_produccion, cost_inventario],
+        hole=0.6,
+        marker=dict(colors=['royalblue', 'darkorange']),
+        textinfo='label+percent',
+        textposition='outside',
+        showlegend=False
+    ), row=1, col=2)
+
+# Texto centrado dentro del donut (TOTAL)
+    fig.add_annotation(
+        text=f"<b>{obj_lp:.2f}</b>",
+        xref="paper", yref="paper",  # coordenadas relativas al lienzo
+        x=0.91, y=0.5,              # centro del donut (ajustar si cambia layout)
+        showarrow=False,
+        font=dict(size=15, color="black"),
+        xanchor="center", yanchor="middle"
+    )
+
+    # Layout general
+    fig.update_layout(
+        barmode='stack',
+        yaxis_title='Toneladas',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        legend_title='Variables',
+        legend=dict(orientation="h", yanchor="bottom", y=1.15, xanchor="center", x=0.5)
+    )
+
+    fig.show()
+
+
+# ============================================================================
+# Gráficar Datos
+# ============================================================================
+
+def visualizar(df):
+    """
+    Grafica:
+    - Barras: c_t (Costo de pedir) y h_t (Costo de almacenar)
+    - Área gris de fondo: d_t (Demanda)
+    Usando como eje X el Horizonte de Planeación.
+    """
+
+    fig = go.Figure()
+
+    # Área gris de la demanda (eje secundario)
+    fig.add_trace(go.Scatter(
+        x=df["t"],              # Horizonte de planeación
+        y=df["d_t"],
+        fill='tozeroy',
+        fillcolor='rgba(128,128,128,0.2)',
+        line=dict(color='rgba(128,128,128,0.5)'),
+        name="Demanda (dₜ)",
+        yaxis="y2"
+    ))
+
+    # Barras de costo de pedir
+    fig.add_trace(go.Bar(
+        x=df["t"],
+        y=df["c_t"],
+        name="Costo de producción (cₜ)",
+        marker_color="#1f77b4"
+    ))
+
+    # Barras de costo de almacenar
+    fig.add_trace(go.Bar(
+        x=df["t"],
+        y=df["h_t"],
+        name="Costo de almacenamiento (hₜ)",
+        marker_color="#ff7f0e"
+    ))
+
+    # Ejes y layout
+    fig.update_layout(
+        xaxis=dict(title="Horizonte de Planeación (t)"),
+        yaxis=dict(title="Costos (cₜ y hₜ)"),
+        yaxis2=dict(
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            title="Demanda (dₜ)"
+        ),
+        barmode='group',
+        plot_bgcolor='white',
+        legend=dict(title="Variables")
+    )
+
+    fig.show()

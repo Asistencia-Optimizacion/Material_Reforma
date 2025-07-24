@@ -341,43 +341,14 @@ class InventoryEnv:
         total_costos_prod = round(sum(costos_prod) , 3)
         total_costos_inv = round(sum(costos_inv) , 3)
         obj_lp = round(total_costos_prod + total_costos_inv, 3)
-        produccion = orders
-        inventario = inv_start  # <- usa inventario inicial; cambia a inv_end si prefieres I_t
+        produccion = {i+1: orders[i] for i in range(len(ts))}
+        inventario = {i+1: inv_start[i] for i in range(len(ts))}
 
         # ------------------------------------------------------------------
         # 4. Imprimir métricas con el formato solicitado
         print(f'FO (valor total): {total_costos_prod} (Producción) + {total_costos_inv} (Inventario) = {obj_lp}')
         print(f'Cantidad de toneladas pedidas (valor total): {sum(produccion)}.')
         print(f'Cantidad de toneladas en inventario (valor total): {sum(inventario)}.')
-
-        # ------------------------------------------------------------------
-        # 5. Gráfico: Demanda (área) + Barras apiladas Inventario + Producción
-        # ------------------------------------------------------------------
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        # Series numéricas para graficar con fill_between
-        x_pos = np.arange(self.n)
-        demanda_list = demands
-        produccion_list = produccion
-        inventario_list = inventario
-
-        plt.figure(figsize=(16, 10))
-
-        # Área de la demanda
-        plt.fill_between(x_pos, demanda_list, color='lightgray', label='Demanda [Ton]', alpha=0.6)
-
-        # Barras apiladas: inventario inicial como base, producción encima
-        plt.bar(x_pos, inventario_list, label='Inventario inicial [Ton]', color='darkorange', alpha=0.8)
-        plt.bar(x_pos, produccion_list, bottom=inventario_list, label='Producción [Ton]', color='royalblue', alpha=0.8)
-
-        plt.title('Plan de producción [Ton]')
-        plt.ylabel('Toneladas')
-        plt.xticks(x_pos, month_labels)
-        plt.legend()
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        plt.show()
 
         # ------------------------------------------------------------------
         # 6. Estructura de salida útil

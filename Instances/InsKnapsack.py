@@ -95,8 +95,6 @@ def visualizar(obras):
         color_continuous_scale="YlOrRd",
         size_max=40,
         zoom=10,
-        height=700,
-        width=1500,
         labels={
             "Costo de ejecución (en millones de pesos)": "Costo ejecución (M)",
             "# de empleos generados (en miles)": "Empleos generados (mil)"
