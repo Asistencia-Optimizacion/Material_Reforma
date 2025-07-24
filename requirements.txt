@@ -1,0 +1,36 @@
+# Requerimientos para el proyecto Material_Reforma
+# Generado automáticamente basado en análisis de código
+
+# Optimización y programación lineal
+pulp>=2.7.0
+
+# Manipulación y análisis de datos
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualización
+matplotlib>=3.7.0
+plotly>=5.17.0
+
+# Análisis geoespacial
+geopandas>=0.14.0
+shapely>=2.0.0
+
+# Análisis de redes y grafos
+networkx>=3.0
+
+# Procesamiento de imágenes
+Pillow>=10.0.0
+
+# Jupyter y IPython (para notebooks)
+jupyter>=1.0.0
+ipython>=8.0.0
+
+# Librerías estándar incluidas en Python (no necesitan instalación):
+# - random
+# - time
+# - sys
+# - os
+# - math
+# - glob
+# - re
