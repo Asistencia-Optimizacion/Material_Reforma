@@ -2,90 +2,62 @@ import pandas as pd
 import random
 import math
 import matplotlib.pyplot as plt
+import geopandas as gpd
+from shapely.geometry import Point
 
 # ============================================================================
-# Geocaja de Bogotá para muestreo de coordenadas sintéticas
+# Cargar polígono de Colombia (para filtrar puntos en tierra)
 # ============================================================================
-# Define un rango de latitudes y longitudes para simular ubicaciones dentro
-# del área metropolitana de Bogotá (datos sintéticos, no reales).
+url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+world = gpd.read_file(url)
+colombia_shape = world.query("ADMIN == 'Colombia'").geometry.values[0]
+
 # ============================================================================
-bogota_bbox = {
-    "lat": (4.5, 4.85),
-    "lon": (-74.2, -74.0)
+# Geocaja general de Colombia
+# ============================================================================
+colombia_bbox = {
+    "lat": (-4.23, 12.46),
+    "lon": (-79.02, -66.87)
 }
 
+def random_point_in_colombia():
+    """
+    Genera un punto aleatorio dentro del polígono de Colombia (no en mar).
+    """
+    while True:
+        lat = random.uniform(*colombia_bbox["lat"])
+        lon = random.uniform(*colombia_bbox["lon"])
+        point = Point(lon, lat)
+        if colombia_shape.contains(point):
+            return round(lat, 6), round(lon, 6)
 
 # ============================================================================
-# Utilidades básicas (coordenadas, distancia geográfica)
+# Cálculo de distancia usando Haversine
 # ============================================================================
+def haversine_km(lat1, lon1, lat2, lon2, r_km=6371.0):
 
-def _random_point_in_bogota():
-    """
-    Retorna una tupla (lat, lon) aleatoria dentro de los límites de Bogotá.
-
-    Salida:
-      • Coordenadas en grados decimales (latitud, longitud), redondeadas a 6 decimales.
-    """
-    lat = random.uniform(*bogota_bbox["lat"])
-    lon = random.uniform(*bogota_bbox["lon"])
-    return round(lat, 6), round(lon, 6)
-
-
-def _haversine_km(lat1, lon1, lat2, lon2, r_km: float = 6371.0) -> float:
-    """
-    Calcula la distancia del gran círculo entre dos puntos en la Tierra usando la fórmula de Haversine.
-
-    Parámetros:
-      • lat1, lon1 : coordenadas del primer punto (en grados)
-      • lat2, lon2 : coordenadas del segundo punto (en grados)
-      • r_km       : radio de la Tierra en kilómetros (por defecto 6371)
-
-    Retorna:
-      • Distancia entre los dos puntos en kilómetros (float)
-    """
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return r_km * c
-
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return r_km * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
 
 # ============================================================================
-# Generar nodos para instancia de TSP: 1 bodega + N clientes
+# Generación de nodos (Bodega + Clientes)
 # ============================================================================
 def generar_datos(num_clientes: int,
                   seed: int | None = None,
-                  coords_bodega: tuple[float, float] | None = None,
+                  coords_bodega: tuple[float, float] | None = (4.7111, -74.0721),
                   id_bodega: str = "Bodega") -> pd.DataFrame:
-    """
-    ============================================================================
-    Generar nodos sintéticos para una instancia de TSP en Bogotá
-    ─────────────────────────────────────────────────────────────────────────────
-    Retorna un DataFrame con coordenadas de una bodega y N clientes.
-
-    Columnas devueltas:
-      ['ID', 'Tipo', 'Latitud', 'Longitud']
-
-    Parámetros:
-      • num_clientes   : int  → número de clientes a generar
-      • seed           : int  → semilla aleatoria (opcional)
-      • coords_bodega  : tuple(float, float) → coordenadas fijas para la bodega (opcional)
-      • id_bodega      : str  → identificador para el nodo bodega
-
-    Notas:
-      • La bodega aparece siempre en la primera fila.
-      • Datos puramente sintéticos para fines educativos.
-    ============================================================================
-    """
+    
     if seed is not None:
         random.seed(seed)
 
     registros = []
 
-    # -- Nodo bodega (origen) --
+    # Nodo Bodega
     if coords_bodega is None:
-        lat_b, lon_b = _random_point_in_bogota()
+        lat_b, lon_b = random_point_in_colombia()
     else:
         lat_b, lon_b = coords_bodega
     registros.append({
@@ -95,9 +67,9 @@ def generar_datos(num_clientes: int,
         "Longitud": round(lon_b, 6),
     })
 
-    # -- Nodos cliente --
+    # Nodos Cliente
     for i in range(1, num_clientes + 1):
-        lat, lon = _random_point_in_bogota()
+        lat, lon = random_point_in_colombia()
         registros.append({
             "ID": f"C{i:02d}",
             "Tipo": "Cliente",
@@ -107,38 +79,13 @@ def generar_datos(num_clientes: int,
 
     return pd.DataFrame(registros)
 
-
 # ============================================================================
-# Cálculo de distancias entre nodos (matriz o lista de arcos)
+# Matriz o lista de distancias
 # ============================================================================
 def distancias_tsp(df_nodos: pd.DataFrame,
                    modo: str = "long",
                    dirigido: bool = False) -> pd.DataFrame:
-    """
-    ============================================================================
-    Construye la representación de costos de arco entre nodos para el TSP.
-    ─────────────────────────────────────────────────────────────────────────────
-    Entrada:
-      • df_nodos : DataFrame con columnas ['ID', 'Latitud', 'Longitud']
-      • modo     : 'long' o 'wide'
-          - 'long' → lista de arcos con distancias (formato largo)
-          - 'wide' → matriz cuadrada de distancias (formato ancho)
-      • dirigido : bool (solo aplica en modo 'long')
-
-    Salida:
-      • DataFrame con distancias según el modo especificado.
-
-    Ejemplo:
-      df_nodes = generar_datos(5)
-      dist_long = distancias_tsp(df_nodes, modo="long")
-      dist_mat  = distancias_tsp(df_nodes, modo="wide")
-    ============================================================================
-    """
-    req = {"ID", "Latitud", "Longitud"}
-    if not req.issubset(df_nodos.columns):
-        faltan = req - set(df_nodos.columns)
-        raise ValueError(f"Faltan columnas requeridas: {faltan}")
-
+    
     ids = df_nodos["ID"].tolist()
     lat = dict(zip(ids, df_nodos["Latitud"]))
     lon = dict(zip(ids, df_nodos["Longitud"]))
@@ -148,15 +95,14 @@ def distancias_tsp(df_nodos: pd.DataFrame,
         if dirigido:
             for i in ids:
                 for j in ids:
-                    if i == j:
-                        continue
-                    d = _haversine_km(lat[i], lon[i], lat[j], lon[j])
-                    filas.append({"Origen": i, "Destino": j, "Dist_km": d})
+                    if i != j:
+                        d = haversine_km(lat[i], lon[i], lat[j], lon[j])
+                        filas.append({"Origen": i, "Destino": j, "Dist_km": d})
         else:
             for idx_i in range(len(ids)):
                 for idx_j in range(idx_i + 1, len(ids)):
                     i, j = ids[idx_i], ids[idx_j]
-                    d = _haversine_km(lat[i], lon[i], lat[j], lon[j])
+                    d = haversine_km(lat[i], lon[i], lat[j], lon[j])
                     filas.append({"Origen": i, "Destino": j, "Dist_km": d})
         return pd.DataFrame(filas)
 
@@ -165,19 +111,133 @@ def distancias_tsp(df_nodos: pd.DataFrame,
         for i in ids:
             row = []
             for j in ids:
-                if i == j:
-                    row.append(0.0)
-                else:
-                    row.append(_haversine_km(lat[i], lon[i], lat[j], lon[j]))
+                row.append(0.0 if i == j else haversine_km(lat[i], lon[i], lat[j], lon[j]))
             data[i] = row
-        mat = pd.DataFrame(data, index=ids)
-        mat = mat.loc[ids, ids]
-        mat.index.name = "ID"
-        return mat
+        return pd.DataFrame(data, index=ids)
 
     else:
         raise ValueError("`modo` debe ser 'long' o 'wide'.")
 
+# ============================================================================
+# Visualización en mapa (GeoPandas)
+# ============================================================================
+import plotly.graph_objects as go
+import geopandas as gpd
+
+def sucesor_a_tours(succ: dict):
+    """
+    Convierte un diccionario sucesor {i:j} (arcos activos) en una lista de rutas (listas de nodos).
+    Soporta múltiples subtours.
+    """
+    usados = set()
+    tours = []
+    for start in succ:
+        if start in usados:
+            continue
+        tour = [start]
+        usados.add(start)
+        nxt = succ[start]
+        while nxt not in usados and nxt in succ:
+            tour.append(nxt)
+            usados.add(nxt)
+            nxt = succ[nxt]
+        tours.append(tour)
+    return tours
+
+def visualizar(clientes_df, rutas=None, pplot=True, nombre_archivo=None):
+    """
+    Visualización interactiva con Plotly de clientes, bodega y rutas.
+
+    clientes_df: DataFrame con columnas ['ID','Latitud','Longitud']
+    rutas:
+        • None                      -> solo puntos
+        • Lista de IDs              -> una sola ruta
+        • Lista de listas de IDs    -> múltiples rutas
+        • Dict {i:j} (sucesor TSP)  -> se convierte automáticamente a listas
+    """
+    # --- Coordenadas ---
+    coord = clientes_df.set_index('ID')[['Latitud', 'Longitud']].to_dict('index')
+
+    # --- Normalización de rutas ---
+    rutas_norm = []
+    if rutas is None:
+        rutas_norm = []
+    elif isinstance(rutas, dict):
+        rutas_norm = sucesor_a_tours(rutas)
+    elif all(isinstance(r, str) for r in rutas):
+        rutas_norm = [rutas]
+    else:
+        rutas_norm = rutas  # asumimos lista de listas
+
+    # --- Crear figura ---
+    fig = go.Figure()
+
+    # --- Colores para distinguir rutas ---
+    colors = ["black", "green", "purple", "orange", "brown", "pink", "cyan", "gray", "teal"]
+
+    # --- Dibujar rutas ---
+    for idx, ruta in enumerate(rutas_norm):
+        lats = [coord[c]['Latitud'] for c in ruta if c in coord]
+        lons = [coord[c]['Longitud'] for c in ruta if c in coord]
+        fig.add_trace(go.Scattergeo(
+            lon=lons, lat=lats,
+            mode='lines+markers',
+            line=dict(width=2, color='grey'),
+            marker=dict(size=6),
+            name=f'Ruta {idx+1}',
+            hovertext=ruta,
+            hoverinfo='text'
+        ))
+
+    # --- Agregar puntos (bodega y clientes) ---
+    leyenda_clientes_agregada = False
+    for cid, datos in coord.items():
+        if cid == 'Bodega':
+            fig.add_trace(go.Scattergeo(
+                lon=[datos['Longitud']], lat=[datos['Latitud']],
+                mode='markers',
+                text=[cid],
+                marker=dict(size=12, color='red', symbol='star'),
+                name='Bodega'
+            ))
+        else:
+            fig.add_trace(go.Scattergeo(
+                lon=[datos['Longitud']], lat=[datos['Latitud']],
+                mode='markers',
+                marker=dict(size=6, color='blue'),
+                name='Clientes' if not leyenda_clientes_agregada else None,
+                hovertext=cid,
+                hoverinfo='text',
+                showlegend=not leyenda_clientes_agregada
+            ))
+            leyenda_clientes_agregada = True
+
+    # --- Layout ---
+    fig.update_layout(
+        title="Ubicación de Clientes y Rutas en Colombia",
+        geo=dict(
+            scope='south america',
+            projection_type='mercator',
+            showland=True,
+            landcolor="rgb(255, 255, 255)",
+            showocean=True,
+            oceancolor="rgb(173, 216, 230)",
+            showcountries=True,
+            countrycolor="black",
+            center=dict(lat=4.5, lon=-74.0),
+            fitbounds="locations"
+        ),
+        width=900,
+        height=900,
+        showlegend=False
+    )
+
+    if pplot:
+        fig.show()
+
+    if nombre_archivo:
+        # Necesitas kaleido instalado: pip install -U kaleido
+        fig.write_image(f"Assets/{nombre_archivo}.png", width=1200, height=900)
 
 # ============================================================================
 # Reconstrucción de ruta a partir de conjunto de arcos
@@ -217,57 +277,23 @@ def reconstruir_tour(sel_arcos, N, inicio='Bodega'):
     tour.append(inicio)
     return tour
 
-
 # ============================================================================
-# Visualización de ruta geográfica en coordenadas (matplotlib)
+# Crear GIF
 # ============================================================================
-def graficar_ruta(clientes_df: pd.DataFrame, ruta: list[str]):
-    """
-    Dibuja la ruta de reparto sobre un plano lat/lon con identificación visual.
+from PIL import Image
+import glob, re, os
 
-    Parámetros:
-      • clientes_df : DataFrame con nodos y coordenadas ['ID','Latitud','Longitud']
-      • ruta        : lista de IDs de nodos en el orden en que se visitan
+def hacer_gif(pattern="Assets/*.png", salida="Assets/tour.gif", ms_por_frame=600, loop=0):
+    # Buscar y ordenar por número en el nombre
+    files = sorted(glob.glob(pattern), key=lambda x: int(re.search(r'(\d+)', os.path.basename(x)).group(1)))
+    if not files:
+        raise FileNotFoundError("No encontré PNGs que coincidan con el patrón.")
+    imgs = [Image.open(f) for f in files]
+    imgs[0].save(
+        salida,
+        save_all=True,
+        append_images=imgs[1:],
+        duration=ms_por_frame,
+        loop=loop
+    )
 
-    La visualización:
-      ▸ Marca la bodega en rojo, clientes en azul
-      ▸ Dibuja la ruta en negro
-      ▸ Añade márgenes automáticos al gráfico
-    """
-    # Asegurar que la ruta esté cerrada con la bodega al inicio y al final
-    if ruta[0] != 'Bodega':
-        ruta = ['Bodega'] + ruta
-    if ruta[-1] != 'Bodega':
-        ruta.append('Bodega')
-
-    # Coordenadas por ID
-    coord = clientes_df.set_index('ID')[['Latitud', 'Longitud']].to_dict('index')
-    lats = [coord[c]['Latitud'] for c in ruta]
-    lons = [coord[c]['Longitud'] for c in ruta]
-
-    # Rango dinámico con margen
-    min_lat, max_lat = min(lats), max(lats)
-    min_lon, max_lon = min(lons), max(lons)
-    margin_y = (max_lat - min_lat) 
-    margin_x = (max_lon - min_lon)
-
-    # Graficar
-    plt.figure(figsize=(16, 10))
-    for cid in clientes_df['ID']:
-        lat, lon = coord[cid]['Latitud'], coord[cid]['Longitud']
-        if cid == 'Bodega':
-            plt.scatter(lon, lat, color='red', s=100, label='Bodega')
-            plt.annotate('Bodega', (lon, lat), textcoords="offset points", xytext=(5, 5))
-        else:
-            plt.scatter(lon, lat, color='blue', s=30)
-
-    plt.plot(lons, lats, color='black', linewidth=1)
-    plt.title("Ruta de Reparto")
-    plt.xlabel("Longitud")
-    plt.ylabel("Latitud")
-    plt.xlim(min_lon - margin_x, max_lon + margin_x)
-    plt.ylim(min_lat - margin_y, max_lat + margin_y)
-    plt.axis('equal')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
